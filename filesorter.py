@@ -1,0 +1,106 @@
+#!/usr/bin/python3
+
+import os
+import shutil
+import subprocess
+import sys
+from zipfile import ZipFile
+
+
+class FileSorter:
+
+    def __init__(self, mappecounter, udFolder):
+        self.mappecounter = mappecounter
+        self.unZipMappeCount = 0
+        self.udFolder = udFolder
+        self.tempFolder = os.path.join(os.getcwd(), 'temp')
+        if not os.path.isdir(self.tempFolder):
+            os.mkdir(self.tempFolder)
+
+    def naestefil(self) -> str:
+        self.mappecounter += 1
+        return f'{self.mappecounter}'
+
+    def naesteUnzipMappe(self):
+        self.unZipMappeCount += 1
+        return os.path.join(self.tempFolder, f'Z{self.unZipMappeCount}')
+
+    def sorter(self, minfil) -> None:
+
+        if minfil[-4:] == '.txt':
+            if minfil[-5:] == '8.txt':
+                targetFolder = 'utf'
+                targetFile = self.naestefil() + '8.txt'
+            else:
+                targetFolder = 'txt'
+                targetFile = self.naestefil() + '.txt'
+
+        elif minfil.endswith('.pdf'):
+            targetFolder = 'pdf'
+            targetFile = self.naestefil() + '.pdf'
+        elif minfil.endswith('.mp3'):
+            targetFolder = 'mp3'
+            targetFile = self.naestefil() + '.mp3'
+        else:
+            targetFolder = 'andrefiler'
+            targetFile = self.naestefil() + minfil[-4:]
+        #     targetFolder = os.path.join( sortfolder('andrefiler/'), str(str(self.naestefil()) + fileName[-4:]))
+
+        target = os.path.join(self.udFolder, targetFolder, targetFile)
+        #print(f'kopierer {minfil} til {target}')
+        shutil.copy(minfil, target)
+
+    def myunzip(self, zipfil):
+        print(f'{zipfil=}')
+        unzipMappe = self.naesteUnzipMappe()
+        if not os.path.isdir(unzipMappe):
+            os.mkdir(unzipMappe)
+        try:
+            with ZipFile(zipfil, 'r') as zipObject:
+                zipObject.extractall(unzipMappe)
+        except NotImplementedError:
+            # python own zipfile do not support all compression types, so we use an external unzipper for this one.
+            status = subprocess.call(["unzip", f'{zipfil}', f'-d{unzipMappe}'])
+            if status:
+                print(f'Something went wrong with unzipping {zipfil}', file=sys.stderr)
+        return unzipMappe
+
+    def gennemGaaMappe(self, mappeNavn):
+        for denneMappe, _, filnavne in os.walk(mappeNavn):
+            #print(f'{denneMappe=}')
+            for fil in filnavne:
+                pFil = os.path.join(denneMappe, fil)
+                #print(fil)
+                if fil.endswith('.zip'):
+                    nyMappe = self.myunzip(pFil)
+                    self.gennemGaaMappe(nyMappe)
+                    shutil.rmtree(nyMappe)
+                else:
+                    self.sorter(pFil)
+
+
+def mkSortDir(folder):
+    folder = os.path.join(highestsortfolder, folder)
+    if not os.path.isdir(folder):
+        os.mkdir(folder)
+
+
+if __name__ == '__main__':
+    pwd = os.getcwd()
+    highestfolder = os.path.join(pwd, 'data')
+    highestsortfolder = os.path.join(pwd, 'output')
+
+    # lav mappe struktur
+
+    if not os.path.isdir(highestsortfolder):
+        os.mkdir(highestsortfolder)
+
+    mkSortDir('utf')
+    mkSortDir('txt')
+    mkSortDir('pdf')
+    mkSortDir('mp3')
+    mkSortDir('andrefiler')
+
+    system1 = FileSorter(100, highestsortfolder)
+
+    system1.gennemGaaMappe(highestfolder)

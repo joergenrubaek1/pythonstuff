@@ -9,13 +9,17 @@ from zipfile import ZipFile
 
 class FileSorter:
 
-    def __init__(self, mappecounter, udFolder):
-        self.mappecounter = mappecounter
+    def __init__(self, mappecounterstart, udFolder):
+        self.mappecounter = mappecounterstart
         self.unZipMappeCount = 0
         self.udFolder = udFolder
         self.tempFolder = os.path.join(os.getcwd(), 'temp')
-        if not os.path.isdir(self.tempFolder):
-            os.mkdir(self.tempFolder)
+
+        # lav en ny ren temp mappe
+        shutil.rmtree(self.tempFolder, ignore_errors=True)
+        os.mkdir(self.tempFolder)
+        # lav mappe struktur til sortering
+        mkSortDirTree(self.udFolder)
 
     def naestefil(self) -> str:
         self.mappecounter += 1
@@ -44,10 +48,9 @@ class FileSorter:
         else:
             targetFolder = 'andrefiler'
             targetFile = self.naestefil() + minfil[-4:]
-        #     targetFolder = os.path.join( sortfolder('andrefiler/'), str(str(self.naestefil()) + fileName[-4:]))
 
         target = os.path.join(self.udFolder, targetFolder, targetFile)
-        #print(f'kopierer {minfil} til {target}')
+        # print(f'kopierer {minfil} til {target}')
         shutil.copy(minfil, target)
 
     def myunzip(self, zipfil):
@@ -55,6 +58,9 @@ class FileSorter:
         unzipMappe = self.naesteUnzipMappe()
         if not os.path.isdir(unzipMappe):
             os.mkdir(unzipMappe)
+        else:
+            print(f'Advarsel dobbelt brug af unzipmappe: {unzipMappe}', file=sys.stderr)
+
         try:
             with ZipFile(zipfil, 'r') as zipObject:
                 zipObject.extractall(unzipMappe)
@@ -67,40 +73,31 @@ class FileSorter:
 
     def gennemGaaMappe(self, mappeNavn):
         for denneMappe, _, filnavne in os.walk(mappeNavn):
-            #print(f'{denneMappe=}')
+            # print(f'{denneMappe=}')
             for fil in filnavne:
                 pFil = os.path.join(denneMappe, fil)
-                #print(fil)
+                # print(fil)
                 if fil.endswith('.zip'):
-                    nyMappe = self.myunzip(pFil)
-                    self.gennemGaaMappe(nyMappe)
-                    shutil.rmtree(nyMappe)
+                    tempZipMappe = self.myunzip(pFil)
+                    self.gennemGaaMappe(tempZipMappe)
+                    # tempZipMappen er nu gennegået og sorteret, så den kan fjernes igen.
+                    shutil.rmtree(tempZipMappe)
                 else:
                     self.sorter(pFil)
 
 
-def mkSortDir(folder):
-    folder = os.path.join(highestsortfolder, folder)
-    if not os.path.isdir(folder):
-        os.mkdir(folder)
+def mkSortDirTree(root):
+    # create root folder
+    os.makedirs(root, exist_ok=True)
+    subdirs = ['utf', 'txt', 'pdf', 'mp3', 'andrefiler']
+    for subdir in subdirs:
+        os.makedirs(os.path.join(root, subdir), exist_ok=True)
 
 
 if __name__ == '__main__':
     pwd = os.getcwd()
-    highestfolder = os.path.join(pwd, 'data')
-    highestsortfolder = os.path.join(pwd, 'output')
+    datafolder = os.path.join(pwd, 'data')
+    sortfolder = os.path.join(pwd, 'output')
 
-    # lav mappe struktur
-
-    if not os.path.isdir(highestsortfolder):
-        os.mkdir(highestsortfolder)
-
-    mkSortDir('utf')
-    mkSortDir('txt')
-    mkSortDir('pdf')
-    mkSortDir('mp3')
-    mkSortDir('andrefiler')
-
-    system1 = FileSorter(100, highestsortfolder)
-
-    system1.gennemGaaMappe(highestfolder)
+    filesorter = FileSorter(100, sortfolder)
+    filesorter.gennemGaaMappe(datafolder)
